@@ -1,6 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+
 import { Injectable, Logger } from '@nestjs/common';
+import semver from 'semver';
 
 interface ServiceInfo {
+  name: string;
   timestamp: number;
   ip: string;
   port: number;
@@ -11,23 +16,23 @@ interface ServiceInfo {
 export class ServiceRegistryService {
   private readonly logger = new Logger(ServiceRegistryService.name);
 
-  // Service store
+  // All registered services stored here
   private services: Record<string, ServiceInfo> = {};
 
-  // 30 seconds timeout (should come from env ideally)
+  // Timeout for expiration (30 sec default)
   private timeout = 30;
 
-  // Helper: Get current timestamp
+  // Current timestamp helper
   private getTimestamp(): number {
     return Math.floor(Date.now() / 1000);
   }
 
-  // Create unique key safely
+  // Generates unique key for each service instance
   private generateKey(name: string, version: string, ip: string, port: number) {
     return `${name}:${version}:${ip}:${port}`;
   }
 
-  // Register or heartbeat refresh
+  // Register new service OR refresh if already registered
   register(
     name: string,
     version: string,
@@ -37,8 +42,9 @@ export class ServiceRegistryService {
     const key = this.generateKey(name, version, ip, port);
 
     if (!this.services[key]) {
-      // New service
+      // New service entry
       this.services[key] = {
+        name,
         timestamp: this.getTimestamp(),
         ip,
         port,
@@ -47,16 +53,22 @@ export class ServiceRegistryService {
 
       this.logger.debug(`Service added: ${key}`);
 
-      return { key, message: 'Service successfully registered' };
+      return {
+        key,
+        message: 'Service successfully registered',
+      };
     }
 
-    // Existing service → update timestamp (heartbeat)
+    // Already registered → Heartbeat refresh
     this.services[key].timestamp = this.getTimestamp();
 
-    return { key, message: 'Service already registered — timestamp refreshed' };
+    return {
+      key,
+      message: 'Service already registered — timestamp refreshed',
+    };
   }
 
-  // Remove dead services
+  // Remove inactive services
   cleanUp(): void {
     const now = this.getTimestamp();
 
@@ -68,18 +80,33 @@ export class ServiceRegistryService {
     });
   }
 
-  // Manually remove a service
+  // Manually unregister service
   unRegister(
     name: string,
     version: string,
     ip: string,
-    port: number, // FIXED TYPE
+    port: number,
   ): { key: string; message: string } {
     const key = this.generateKey(name, version, ip, port);
 
     delete this.services[key];
     this.logger.debug(`Service removed manually: ${key}`);
 
-    return { key, message: 'Service removed' };
+    return {
+      key,
+      message: 'Service removed',
+    };
+  }
+
+  // Search service by name + version range
+  search(name: string, version: string): any {
+    this.cleanUp();
+
+    const candidates = Object.values(this.services).filter(
+      (service) =>
+        service.name === name && semver.satisfies(service.version, version),
+    );
+
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
 }
