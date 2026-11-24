@@ -14,14 +14,8 @@ yarn-error.log*
 lerna-debug.log*
 
 # dotenv environment variable files
-.env
-.env.development
-.env.test
-.env.production
 
 # temp directory
 .temp
 .tmp
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat
+config.bat
